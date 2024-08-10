@@ -1,11 +1,13 @@
 # 2024-08-10 07:40
 # act-release.yml
-#
+# rust-1.77.2 (win 7)
 name: act-Release
 
 env:
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
   MSRV_FEATURES: ""
+  TAG_PREFIX: "v"
+  TAG_SUFFIX: "-rust_1_77_2"
 
 on:
   workflow_dispatch:
@@ -137,9 +139,18 @@ jobs:
           aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
         esac
 
+    - name: Extract crate information
+      shell: bash
+      run: |
+        echo "PROJECT_NAME=numbat" >> $GITHUB_ENV
+        echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' numbat/Cargo.toml | head -n1)" >> $GITHUB_ENV
+        echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' numbat/Cargo.toml)" >> $GITHUB_ENV
+        echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' numbat/Cargo.toml)" >> $GITHUB_ENV
+
     - name: Install Rust toolchain
-      uses: deep-soft/rust-toolchain@stable
+      uses: deep-soft/rust-toolchain@master
       with:
+        toolchain: "${{ contains(matrix.job.target, 'windows-') && '1.77.2' || 'stable' }}"
         targets: ${{ matrix.job.target }}
 
     - name: Install cross
@@ -366,8 +377,9 @@ jobs:
 
     - name: Publish archives and packages
       uses: deep-soft/action-gh-release@v2.1
-      if: steps.is-release.outputs.IS_RELEASE
+      # if: steps.is-release.outputs.IS_RELEASE
       with:
+        tag_name: ${{ env.TAG_PREFIX }}${{ env.PROJECT_VERSION }}${{ env.TAG_SUFFIX }}
         files: |
           ${{ steps.package.outputs.PKG_PATH }}
           ${{ steps.debian-package.outputs.DPKG_PATH }}
