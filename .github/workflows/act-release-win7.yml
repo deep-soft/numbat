@@ -148,7 +148,7 @@ jobs:
         echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' numbat/Cargo.toml)" >> $GITHUB_ENV
 
     - name: Install Rust toolchain
-      uses: deep-soft/rust-toolchain@master
+      uses: deep-soft/rust-toolchain@stable
       with:
         toolchain: "${{ contains(matrix.job.target, 'windows-') && '1.77.2' || 'stable' }}"
         targets: ${{ matrix.job.target }}
