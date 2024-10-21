@@ -14,6 +14,7 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
     use super::lists::*;
     use super::lookup::*;
     use super::math::*;
+    use super::plot::*;
     use super::strings::*;
 
     FFI_FUNCTIONS.get_or_init(|| {
@@ -24,7 +25,7 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
                 m.insert(
                     $fn_name.to_string(),
                     ForeignFunction {
-                        name: $fn_name.to_string(),
+                        name: $fn_name,
                         arity: $arity,
                         callable: Callable::Function(Box::new($callable)),
                     },
@@ -37,7 +38,7 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
 
         // Core
         insert_function!(error, 1..=1);
-        insert_function!(unit_of, 1..=1);
+        insert_function!(value_of, 1..=1);
 
         // Math
         insert_function!("mod", mod_, 2..=2);
@@ -106,17 +107,19 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
         // Database lookup
         insert_function!(_get_chemical_element_data_raw, 1..=1);
 
+        // Plotting
+        insert_function!(show, 1..=1);
+
         m
     })
 }
 
 fn error(mut args: Args) -> Result<Value> {
-    Err(RuntimeError::UserError(
-        arg!(args).unsafe_as_string().into(),
-    ))
+    Err(RuntimeError::UserError(arg!(args).unsafe_as_string()))
 }
 
-fn unit_of(mut args: Args) -> Result<Value> {
-    let input_unit = quantity_arg!(args).unit().clone();
-    return_quantity!(1.0, input_unit)
+fn value_of(mut args: Args) -> Result<Value> {
+    let quantity = quantity_arg!(args);
+
+    return_scalar!(quantity.unsafe_value().to_f64())
 }
