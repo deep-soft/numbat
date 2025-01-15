@@ -1,6 +1,6 @@
 # Mathematical functions
 
-[Basics](#basics) · [Transcendental functions](#transcendental-functions) · [Trigonometry](#trigonometry) · [Statistics](#statistics) · [Random sampling, distributions](#random-sampling-distributions) · [Number theory](#number-theory) · [Numerical methods](#numerical-methods) · [Percentage calculations](#percentage-calculations) · [Geometry](#geometry) · [Algebra](#algebra) · [Trigonometry (extra)](#trigonometry-(extra))
+[Basics](#basics) · [Transcendental functions](#transcendental-functions) · [Trigonometry](#trigonometry) · [Statistics](#statistics) · [Combinatorics](#combinatorics) · [Random sampling, distributions](#random-sampling-distributions) · [Number theory](#number-theory) · [Numerical methods](#numerical-methods) · [Percentage calculations](#percentage-calculations) · [Geometry](#geometry) · [Algebra](#algebra) · [Trigonometry (extra)](#trigonometry-(extra))
 
 ## Basics
 
@@ -268,6 +268,37 @@ Truncate in centimeters.
 <pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=trunc%5Fin%28cm%2C%205%2E7%20m%29')""></button></div><code class="language-nbt hljs numbat">trunc_in(cm, 5.7 m)
 
     = 570 cm    [Length]
+</code></pre>
+
+</details>
+
+### `fract` (Fractional part)
+Returns the fractional part of \\( x \\), i.e. the remainder when divided by 1.
+  If \\( x < 0 \\), then so will be `fract(x)`. Note that due to floating point error, a
+  number’s fractional part can be slightly “off”; for instance, `fract(1.2) ==
+  0.1999...996 != 0.2`.
+More information [here](https://doc.rust-lang.org/std/primitive.f64.html#method.fract).
+
+```nbt
+fn fract(x: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=fract%280%2E0%29')""></button></div><code class="language-nbt hljs numbat">fract(0.0)
+
+    = 0
+</code></pre>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=fract%285%2E5%29')""></button></div><code class="language-nbt hljs numbat">fract(5.5)
+
+    = 0.5
+</code></pre>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=fract%28%2D5%2E5%29')""></button></div><code class="language-nbt hljs numbat">fract(-5.5)
+
+    = -0.5
 </code></pre>
 
 </details>
@@ -597,6 +628,123 @@ fn median<D: Dim>(xs: List<D>) -> D
 
 </details>
 
+## Combinatorics
+
+Defined in: `math::combinatorics`
+
+### `factorial` (Factorial)
+The product of the integers 1 through n. Numbat also supports calling this via the postfix operator `n!`.
+More information [here](https://en.wikipedia.org/wiki/Factorial).
+
+```nbt
+fn factorial(n: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=factorial%284%29')""></button></div><code class="language-nbt hljs numbat">factorial(4)
+
+    = 24
+</code></pre>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=4%21')""></button></div><code class="language-nbt hljs numbat">4!
+
+    = 24
+</code></pre>
+
+</details>
+
+### `falling_factorial` (Falling factorial)
+Equal to \\( n⋅(n-1)⋅…⋅(n-k+2)⋅(n-k+1) \\) (k terms total). If n is an integer, this is the number of k-element permutations from a set of size n. k must always be an integer.
+More information [here](https://en.wikipedia.org/wiki/Falling_and_rising_factorials).
+
+```nbt
+fn falling_factorial(n: Scalar, k: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=falling%5Ffactorial%284%2C%202%29')""></button></div><code class="language-nbt hljs numbat">falling_factorial(4, 2)
+
+    = 12
+</code></pre>
+
+</details>
+
+### `binom` (Binomial coefficient)
+Equal to falling_factorial(n, k)/k!, this is the coefficient of \\( x^k \\) in the series expansion of \\( (1+x)^n \\) (see “binomial series”). If n is an integer, then this this is the number of k-element subsets of a set of size n, often read "n choose k". k must always be an integer.
+More information [here](https://en.wikipedia.org/wiki/Binomial_coefficient).
+
+```nbt
+fn binom(n: Scalar, k: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=binom%285%2C%202%29')""></button></div><code class="language-nbt hljs numbat">binom(5, 2)
+
+    = 10
+</code></pre>
+
+</details>
+
+### `fibonacci` (Fibonacci numbers)
+The nth Fibonacci number, where n is a nonnegative integer. The Fibonacci sequence is given by \\( F_0=0 \\), \\( F_1=1 \\), and \\( F_n=F_{n-1}+F_{n-2} \\) for \\( n≥2 \\). The first several elements, starting with \\( n=0 \\), are \\( 0, 1, 1, 2, 3, 5, 8, 13 \\).
+More information [here](https://en.wikipedia.org/wiki/Fibonacci_sequence).
+
+```nbt
+fn fibonacci(n: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=fibonacci%285%29')""></button></div><code class="language-nbt hljs numbat">fibonacci(5)
+
+    = 5
+</code></pre>
+
+</details>
+
+### `lucas` (Lucas numbers)
+The nth Lucas number, where n is a nonnegative integer. The Lucas sequence is given by \\( L_0=2 \\), \\( L_1=1 \\), and \\( L_n=L_{n-1}+L_{n-2} \\) for \\( n≥2 \\). The first several elements, starting with \\( n=0 \\), are \\( 2, 1, 3, 4, 7, 11, 18, 29 \\).
+More information [here](https://en.wikipedia.org/wiki/Lucas_number).
+
+```nbt
+fn lucas(n: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=lucas%285%29')""></button></div><code class="language-nbt hljs numbat">lucas(5)
+
+    = 11
+</code></pre>
+
+</details>
+
+### `catalan` (Catalan numbers)
+The nth Catalan number, where n is a nonnegative integer. The Catalan sequence is given by \\( C_n=\frac{1}{n+1}\binom{2n}{n}=\binom{2n}{n}-\binom{2n}{n+1} \\). The first several elements, starting with \\( n=0 \\), are \\( 1, 1, 2, 5, 14, 42, 132, 429 \\).
+More information [here](https://en.wikipedia.org/wiki/Catalan_number).
+
+```nbt
+fn catalan(n: Scalar) -> Scalar
+```
+
+<details>
+<summary>Examples</summary>
+
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=catalan%285%29')""></button></div><code class="language-nbt hljs numbat">catalan(5)
+
+    = 42
+</code></pre>
+
+</details>
+
 ## Random sampling, distributions
 
 Defined in: `core::random`, `math::distributions`
@@ -738,24 +886,24 @@ Compute the numerical derivative of the function \\( f \\) at point \\( x \\) us
 More information [here](https://en.wikipedia.org/wiki/Numerical_differentiation).
 
 ```nbt
-fn diff<X: Dim, Y: Dim>(f: Fn[(X) -> Y], x: X) -> Y / X
+fn diff<X: Dim, Y: Dim>(f: Fn[(X) -> Y], x: X, Δx: X) -> Y / X
 ```
 
 <details>
 <summary>Examples</summary>
 
 Compute the derivative of \\( f(x) = x² -x -1 \\) at \\( x=1 \\).
-<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=use%20numerics%3A%3Adiff%0Afn%20polynomial%28x%29%20%3D%20x%C2%B2%20%2D%20x%20%2D%201%0Adiff%28polynomial%2C%201%29')""></button></div><code class="language-nbt hljs numbat">use numerics::diff
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=use%20numerics%3A%3Adiff%0Afn%20polynomial%28x%29%20%3D%20x%C2%B2%20%2D%20x%20%2D%201%0Adiff%28polynomial%2C%201%2C%201e%2D10%29')""></button></div><code class="language-nbt hljs numbat">use numerics::diff
 fn polynomial(x) = x² - x - 1
-diff(polynomial, 1)
+diff(polynomial, 1, 1e-10)
 
     = 1.0
 </code></pre>
 
 Compute the free fall velocity after \\( t=2 s \\).
-<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=use%20numerics%3A%3Adiff%0Afn%20distance%28t%29%20%3D%200%2E5%20g0%20t%C2%B2%0Afn%20velocity%28t%29%20%3D%20diff%28distance%2C%20t%29%0Avelocity%282%20s%29')""></button></div><code class="language-nbt hljs numbat">use numerics::diff
+<pre><div class="buttons"><button class="fa fa-play play-button" title="Run this code" aria-label="Run this code"  onclick=" window.open('https://numbat.dev/?q=use%20numerics%3A%3Adiff%0Afn%20distance%28t%29%20%3D%200%2E5%20g0%20t%C2%B2%0Afn%20velocity%28t%29%20%3D%20diff%28distance%2C%20t%2C%201e%2D10%20s%29%0Avelocity%282%20s%29')""></button></div><code class="language-nbt hljs numbat">use numerics::diff
 fn distance(t) = 0.5 g0 t²
-fn velocity(t) = diff(distance, t)
+fn velocity(t) = diff(distance, t, 1e-10 s)
 velocity(2 s)
 
     = 19.6133 m/s    [Velocity]

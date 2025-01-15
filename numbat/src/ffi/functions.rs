@@ -39,6 +39,9 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
         // Core
         insert_function!(error, 1..=1);
         insert_function!(value_of, 1..=1);
+        insert_function!(has_unit, 2..=2);
+        insert_function!(is_dimensionless, 1..=1);
+        insert_function!(unit_name, 1..=1);
 
         // Math
         insert_function!("mod", mod_, 2..=2);
@@ -48,6 +51,7 @@ pub(crate) fn functions() -> &'static HashMap<String, ForeignFunction> {
         insert_function!(floor, 1..=1);
         insert_function!(ceil, 1..=1);
         insert_function!(trunc, 1..=1);
+        insert_function!(fract, 1..=1);
 
         insert_function!(sin, 1..=1);
         insert_function!(cos, 1..=1);
@@ -124,4 +128,23 @@ fn value_of(mut args: Args) -> Result<Value> {
     let quantity = quantity_arg!(args);
 
     return_scalar!(quantity.unsafe_value().to_f64())
+}
+
+fn has_unit(mut args: Args) -> Result<Value> {
+    let quantity = quantity_arg!(args);
+    let unit_query = quantity_arg!(args);
+
+    return_boolean!(quantity.is_zero() || quantity.unit() == unit_query.unit())
+}
+
+fn is_dimensionless(mut args: Args) -> Result<Value> {
+    let quantity = quantity_arg!(args);
+
+    return_boolean!(quantity.unit().is_scalar())
+}
+
+fn unit_name(mut args: Args) -> Result<Value> {
+    let quantity = quantity_arg!(args);
+
+    return_string!(from = &quantity.unit().to_string())
 }
