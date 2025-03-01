@@ -62,6 +62,8 @@
 //! string          ::=   '"' [^"]* '"'
 //! ```
 
+use std::num::NonZeroUsize;
+
 use crate::arithmetic::{Exponent, Rational};
 use crate::ast::{
     BinaryOperator, DefineVariable, Expression, ProcedureKind, Statement, StringPart,
@@ -1300,16 +1302,24 @@ impl<'a> Parser<'a> {
     fn factorial(&mut self, tokens: &[Token<'a>]) -> Result<Expression<'a>> {
         let mut expr = self.unicode_power(tokens)?;
 
+        let mut order = 0;
+        let mut span = None;
         while self
             .match_exact(tokens, TokenKind::ExclamationMark)
             .is_some()
         {
-            let span = self.last(tokens).unwrap().span;
-
+            let current_span = self.last(tokens).unwrap().span;
+            match span.as_mut() {
+                None => span = Some(current_span),
+                Some(span) => *span = span.extend(&current_span),
+            };
+            order += 1;
+        }
+        if order != 0 {
             expr = Expression::UnaryOperator {
-                op: UnaryOperator::Factorial,
+                op: UnaryOperator::Factorial(NonZeroUsize::new(order).unwrap()), // safe because we ensured count was != 0 above
                 expr: Box::new(expr),
-                span_op: span,
+                span_op: span.unwrap(), // safe because if we increased count we wrote a value in span
             };
         }
 
@@ -2202,25 +2212,27 @@ mod tests {
     fn factorials() {
         parse_as_expression(
             &["4!", "4.0!", "4 !", " 4 !", "(4)!"],
-            factorial!(scalar!(4.0)),
+            factorial!(scalar!(4.0), 1),
         );
         parse_as_expression(
             &["3!^3", "(3!)^3"],
-            binop!(factorial!(scalar!(3.0)), Power, scalar!(3.0)),
+            binop!(factorial!(scalar!(3.0), 1), Power, scalar!(3.0)),
         );
         parse_as_expression(
             &["3²!"],
-            factorial!(binop!(scalar!(3.0), Power, scalar!(2.0))),
+            factorial!(binop!(scalar!(3.0), Power, scalar!(2.0)), 1),
         );
         parse_as_expression(
             &["3^3!"],
-            binop!(scalar!(3.0), Power, factorial!(scalar!(3.0))),
+            binop!(scalar!(3.0), Power, factorial!(scalar!(3.0), 1)),
         );
         parse_as_expression(
             &["-5!", "-(5!)", "-(5)!"],
-            negate!(factorial!(scalar!(5.0))),
+            negate!(factorial!(scalar!(5.0), 1)),
         );
-        parse_as_expression(&["5!!", "(5!)!"], factorial!(factorial!(scalar!(5.0))));
+        parse_as_expression(&["(5!)!"], factorial!(factorial!(scalar!(5.0), 1), 1));
+        parse_as_expression(&["5!!", "(5!!)"], factorial!(scalar!(5.0), 2));
+        parse_as_expression(&["5!!!!!"], factorial!(scalar!(5.0), 5));
     }
 
     #[test]

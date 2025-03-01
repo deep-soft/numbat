@@ -103,9 +103,24 @@ jobs:
     - name: Run tests
       run: cargo test --locked ${{ env.MSRV_FEATURES }}
 
+  release_check:
+    name: Release check 
+    runs-on: ubuntu-latest
+    outputs:
+      IS_RELEASE: ${{ steps.is-release.outputs.IS_RELEASE }}
+    steps:
+      - name: Check for release
+        id: is-release
+        shell: bash
+        run: |
+          unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
+          echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
+
   vscode_extension_package:
     name: Package vscode extension
     runs-on: ubuntu-latest
+    needs: 
+      - release_check
     defaults:
       run:
         working-directory: ./vscode-extension
@@ -137,19 +152,29 @@ jobs:
           mkdir -p "${BASE_PATH}/out"
           npm run vscode:package -- --out="${VSCE_PATH}"
           echo "VSCE_NAME=${VSCE_NAME}" >> $GITHUB_OUTPUT
-          echo "VSCE_PATH=${VSCE_PATH}" >> $GITHUB_OUTPUT
+          echo "VSCE_PATH=./vscode-extension/${VSCE_PATH}" >> $GITHUB_OUTPUT
       
       - name: "Artifact upload: VSCode extension"
         uses: actions/upload-artifact@master
         with:
           name: ${{ steps.vsce-package.outputs.VSCE_NAME }}
-          path: ./vscode-extension/${{ steps.vsce-package.outputs.VSCE_PATH }}
+          path: ${{ steps.vsce-package.outputs.VSCE_PATH }}
+      
+      - name: Publish archives and packages
+        uses: softprops/action-gh-release@v1
+        if: needs.release_check.outputs.IS_RELEASE
+        with:
+          files: |
+            ${{ steps.vsce-package.outputs.VSCE_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     needs: 
       - crate_metadata
+      - release_check
     strategy:
       fail-fast: false
       matrix:
@@ -400,16 +425,9 @@ jobs:
         name: ${{ steps.debian-package.outputs.DPKG_NAME }}
         path: ${{ steps.debian-package.outputs.DPKG_PATH }}
 
-    - name: Check for release
-      id: is-release
-      shell: bash
-      run: |
-        unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
-        echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
-
     - name: Publish archives and packages
       uses: softprops/action-gh-release@v1
-      if: steps.is-release.outputs.IS_RELEASE
+      if: needs.release_check.outputs.IS_RELEASE
       with:
         files: |
           ${{ steps.package.outputs.PKG_PATH }}
