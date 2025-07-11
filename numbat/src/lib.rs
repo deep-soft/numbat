@@ -24,6 +24,7 @@ pub mod module_importer;
 mod name_resolution;
 mod number;
 mod parser;
+#[cfg(feature = "plotting")]
 mod plot;
 mod prefix;
 mod prefix_parser;
@@ -64,6 +65,7 @@ use markup::FormatType;
 use markup::Markup;
 use module_importer::{ModuleImporter, NullImporter};
 use prefix_transformer::Transformer;
+use pretty_print::PrettyPrint;
 
 use resolver::CodeSource;
 use resolver::Resolver;
@@ -111,6 +113,16 @@ pub struct Context {
     resolver: Resolver,
     load_currency_module_on_demand: bool,
     terminal_width: Option<usize>,
+}
+
+pub struct FunctionInfo {
+    pub fn_name: CompactString,
+    pub name: Option<CompactString>,
+    pub signature_str: CompactString,
+    pub description: Option<CompactString>,
+    pub url: Option<CompactString>,
+    pub examples: Vec<(CompactString, Option<CompactString>)>,
+    pub code_source: CodeSource,
 }
 
 impl Context {
@@ -166,37 +178,26 @@ impl Context {
             .cloned()
     }
 
-    pub fn functions(
-        &self,
-    ) -> impl Iterator<
-        Item = (
-            CompactString,
-            Option<CompactString>,
-            CompactString,
-            Option<CompactString>,
-            Option<CompactString>,
-            Vec<(CompactString, Option<CompactString>)>,
-            CodeSource,
-        ),
-    > + '_ {
+    pub fn functions(&self) -> impl Iterator<Item = FunctionInfo> + '_ {
         self.prefix_transformer
             .function_names
             .iter()
             .filter(|name| !name.starts_with('_'))
             .map(move |name| {
                 let (signature, meta) = self.typechecker.lookup_function(name).unwrap();
-                (
-                    name.clone(),
-                    meta.name.clone(),
-                    signature
+                FunctionInfo {
+                    fn_name: name.clone(),
+                    name: meta.name.clone(),
+                    signature_str: signature
                         .pretty_print(self.dimension_registry())
                         .to_compact_string(),
-                    meta.description.clone(),
-                    meta.url.clone(),
-                    meta.examples.clone(),
-                    self.resolver
+                    description: meta.description.clone(),
+                    url: meta.url.clone(),
+                    examples: meta.examples.clone(),
+                    code_source: self
+                        .resolver
                         .get_code_source(signature.definition_span.code_source_id),
-                )
+                }
             })
     }
 
@@ -292,9 +293,18 @@ impl Context {
             add_if_valid(variable.into());
         }
 
-        for mut function in self.function_names() {
+        for function_name in self.function_names() {
+            let mut function = function_name.clone();
             if add_paren {
-                function.push('(');
+                if let Some((signature, _)) = self.typechecker.lookup_function(&function_name) {
+                    if signature.parameters.is_empty() {
+                        function.push_str("()");
+                    } else {
+                        function.push('(');
+                    }
+                } else {
+                    function.push('(');
+                }
             }
             add_if_valid(function.into());
         }
@@ -344,6 +354,7 @@ impl Context {
         }
         let reg = self.interpreter.get_unit_registry();
 
+        // Check if it's a unit
         if let PrefixParserResult::UnitIdentifier(_span, prefix, _, full_name) =
             self.prefix_transformer.prefix_parser.parse(keyword)
         {
@@ -445,6 +456,80 @@ impl Context {
             }
         };
 
+        // Check if it's a dimension
+        if self.dimension_registry().contains(keyword) {
+            let mut help =
+                m::text("Dimension:   ") + m::type_identifier(keyword.to_compact_string());
+
+            if let Ok(base_representation) = self
+                .dimension_registry()
+                .get_base_representation_for_name(keyword)
+            {
+                if self.dimension_registry().is_base_dimension(keyword) {
+                    help += m::text(" (Base dimension)") + m::nl();
+                } else {
+                    help += m::space()
+                        + m::operator("=")
+                        + m::space()
+                        + base_representation.pretty_print()
+                        + m::nl();
+                }
+
+                let equivalent_dimensions = self
+                    .dimension_registry()
+                    .get_derived_entry_names_for(&base_representation);
+                if equivalent_dimensions.len() > 1 {
+                    let other_names: Vec<CompactString> = equivalent_dimensions
+                        .iter()
+                        .filter(|&name| name.as_str() != keyword)
+                        .cloned()
+                        .collect();
+                    if !other_names.is_empty() {
+                        help += m::text("Equivalent:  ");
+                        for (i, name) in other_names.iter().enumerate() {
+                            if i > 0 {
+                                help += m::text(", ");
+                            }
+                            help += m::type_identifier(name.clone());
+                        }
+                        help += m::nl();
+                    }
+                }
+
+                // List units that belong to this dimension
+                let matching_units: Vec<CompactString> = self
+                    .unit_representations()
+                    .filter_map(|(_unit_name, (_unit_base_rep, unit_metadata))| {
+                        if let Type::Dimension(unit_dim) = &unit_metadata.type_ {
+                            if unit_dim.to_base_representation() == base_representation {
+                                if let Some((primary_alias, _)) = unit_metadata.aliases.first() {
+                                    return Some(primary_alias.clone());
+                                }
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+
+                if !matching_units.is_empty() {
+                    let mut sorted_units = matching_units;
+                    sorted_units.sort_by_key(|unit| unit.to_lowercase());
+
+                    help += m::text("Units:       ");
+                    for (i, unit) in sorted_units.iter().enumerate() {
+                        if i > 0 {
+                            help += m::text(", ");
+                        }
+                        help += m::unit(unit.clone());
+                    }
+                    help += m::nl();
+                }
+            }
+
+            return help;
+        }
+
+        // Check if it's a valid identifier
         if let Some(l) = self.interpreter.lookup_global(keyword) {
             let mut help = m::text("Variable: ");
             if let Some(name) = &l.metadata.name {
@@ -498,6 +583,7 @@ impl Context {
             return help;
         }
 
+        // Check if it's a function
         if let Some((fn_signature, fn_metadata)) = self.typechecker.lookup_function(keyword) {
             let metadata = fn_metadata.clone();
 
@@ -656,155 +742,8 @@ impl Context {
                     _,
                 ))) = &result
                 {
-                    // TODO: maybe we can somehow load this list of identifiers from units::currencies?
-                    const CURRENCY_IDENTIFIERS: &[&str] = &[
-                        "$",
-                        "USD",
-                        "usd",
-                        "dollar",
-                        "dollars",
-                        "A$",
-                        "AUD",
-                        "aud",
-                        "australian_dollar",
-                        "australian_dollars",
-                        "C$",
-                        "CAD",
-                        "cad",
-                        "canadian_dollar",
-                        "canadian_dollars",
-                        "CHF",
-                        "chf",
-                        "swiss_franc",
-                        "swiss_francs",
-                        "CNY",
-                        "cny",
-                        "yuan",
-                        "renminbi",
-                        "元",
-                        "EUR",
-                        "eur",
-                        "euro",
-                        "euros",
-                        "€",
-                        "GBP",
-                        "gbp",
-                        "british_pound",
-                        "pound_sterling",
-                        "£",
-                        "JPY",
-                        "jpy",
-                        "yen",
-                        "yens",
-                        "¥",
-                        "円",
-                        "bulgarian_lev",
-                        "bulgarian_leva",
-                        "BGN",
-                        "bgn",
-                        "czech_koruna",
-                        "czech_korunas",
-                        "CZK",
-                        "czk",
-                        "Kč",
-                        "hungarian_forint",
-                        "hungarian_forints",
-                        "HUF",
-                        "huf",
-                        "Ft",
-                        "polish_zloty",
-                        "polish_zlotys",
-                        "PLN",
-                        "pln",
-                        "zł",
-                        "romanian_leu",
-                        "romanian_leus",
-                        "RON",
-                        "ron",
-                        "lei",
-                        "turkish_lira",
-                        "turkish_liras",
-                        "TRY",
-                        "try",
-                        "₺",
-                        "brazilian_real",
-                        "brazilian_reals",
-                        "BRL",
-                        "brl",
-                        "R$",
-                        "hong_kong_dollar",
-                        "hong_kong_dollars",
-                        "HKD",
-                        "hkd",
-                        "HK$",
-                        "hk$",
-                        "indonesian_rupiah",
-                        "indonesian_rupiahs",
-                        "IDR",
-                        "idr",
-                        "Rp",
-                        "indian_rupee",
-                        "indian_rupees",
-                        "INR",
-                        "inr",
-                        "₹",
-                        "south_korean_won",
-                        "south_korean_wons",
-                        "KRW",
-                        "krw",
-                        "₩",
-                        "malaysian_ringgit",
-                        "malaysian_ringgits",
-                        "MYR",
-                        "RM",
-                        "new_zealand_dollar",
-                        "new_zealand_dollars",
-                        "NZD",
-                        "nzd",
-                        "NZ$",
-                        "nz$",
-                        "philippine_peso",
-                        "philippine_pesos",
-                        "PHP",
-                        "php",
-                        "₱",
-                        "singapore_dollar",
-                        "singapore_dollars",
-                        "SGD",
-                        "sgd",
-                        "S$",
-                        "thai_baht",
-                        "thai_bahts",
-                        "THB",
-                        "thb",
-                        "฿",
-                        "danish_krone",
-                        "danish_kroner",
-                        "DKK",
-                        "dkk",
-                        "swedish_krona",
-                        "swedish_kronor",
-                        "SEK",
-                        "sek",
-                        "icelandic_króna",
-                        "icelandic_krónur",
-                        "ISK",
-                        "isk",
-                        "norwegian_krone",
-                        "norwegian_kroner",
-                        "NOK",
-                        "nok",
-                        "israeli_new_shekel",
-                        "israeli_new_shekels",
-                        "ILS",
-                        "ils",
-                        "₪",
-                        "NIS",
-                        "nis",
-                        "south_african_rand",
-                        "ZAR",
-                        "zar",
-                    ];
+                    const CURRENCY_IDENTIFIERS: &[&str] =
+                        &include!(concat!(env!("OUT_DIR"), "/currencies.rs"));
                     if CURRENCY_IDENTIFIERS.contains(&identifier.as_str()) {
                         let mut no_print_settings = InterpreterSettings {
                             print_fn: Box::new(

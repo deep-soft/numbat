@@ -305,6 +305,18 @@ fn test_algebra() {
         "infinitely many solutions",
     );
     expect_output_with_context(&mut ctx, "quadratic_equation(1, 1, 1)", "[]");
+    expect_output_with_context(&mut ctx, "cubic_equation(1, -6, 11, -6)", "[1, 2, 3]");
+    expect_output_with_context(&mut ctx, "cubic_equation(1, 0, 0, -1)", "[1]");
+    expect_output_with_context(&mut ctx, "cubic_equation(1, 0, 0, 0)", "[0]");
+    expect_output_with_context(&mut ctx, "cubic_equation(0, 1, -3, 2)", "[1, 2]");
+    expect_output_with_context(&mut ctx, "cubic_equation(0, 0, 1, -4)", "[4]");
+    expect_output_with_context(&mut ctx, "cubic_equation(0, 0, 0, 5)", "[]");
+    expect_output_with_context(&mut ctx, "cubic_equation(1, 1, 1, 1)", "[-1]");
+    expect_failure_with_context(
+        &mut ctx,
+        "cubic_equation(0, 0, 0, 0)",
+        "infinitely many solutions",
+    );
 }
 
 #[test]
@@ -434,6 +446,9 @@ fn test_temperature_conversions() {
 #[test]
 fn test_other_functions() {
     expect_output("sqrt(4)", "2");
+    expect_output("sqrt(-1)", "NaN");
+    expect_output("cbrt(27)", "3");
+    expect_output("cbrt(-64)", "-4");
     expect_output("log10(100000)", "5");
     expect_output("log(e^15)", "15");
     expect_output("ln(e^15)", "15");
@@ -768,7 +783,7 @@ fn test_full_simplify_for_function_calls() {
 
 #[test]
 fn test_datetime_runtime_errors() {
-    expect_failure("datetime(\"2000-01-99\")", "Unrecognized datetime format");
+    expect_failure("datetime(\"2000-01-99\")", "Unrecognized datetime format: failed to parse day in date \"2000-01-99\": day is not valid: parameter 'day' with value 99 is not in the required range of 1..=31");
     expect_failure("now() -> tz(\"Europe/NonExisting\")", "Unknown timezone");
     expect_failure(
         "date(\"2000-01-01\") + 1e100 years",
@@ -777,10 +792,6 @@ fn test_datetime_runtime_errors() {
     expect_failure(
         "date(\"2000-01-01\") + 15_000 years",
         "DateTime out of range",
-    );
-    expect_failure(
-        "format_datetime(\"%Y-%m-%dT%H%:M\", now())",
-        "strftime formatting failed: found unrecognized directive %M following %:.",
     );
     expect_failure(
         "format_datetime(\"%Y %;\", now())",

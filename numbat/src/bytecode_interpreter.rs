@@ -20,7 +20,7 @@ use crate::unit::{CanonicalName, Unit};
 use crate::unit_registry::{UnitMetadata, UnitRegistry};
 use crate::value::{FunctionReference, Value};
 use crate::vm::{Constant, ExecutionContext, Op, Vm};
-use crate::{decorator, ffi, Type};
+use crate::{decorator, Type};
 
 #[derive(Debug, Clone, Default)]
 pub struct LocalMetadata {
@@ -430,9 +430,6 @@ impl BytecodeInterpreter {
                 ))); // TODO: dummy is just a temp. value until the SetUnitConstant op runs
                 let unit_information_idx = self.vm.add_unit_information(
                     unit_name,
-                    Some(
-                        &crate::decorator::get_canonical_unit_name(unit_name, &decorators[..]).name,
-                    ),
                     UnitMetadata {
                         type_: type_.to_concrete_type(), // We guarantee that derived-unit definitions do not contain generics, so no TGen(..)s can escape
                         readable_type: annotation
@@ -475,7 +472,7 @@ impl BytecodeInterpreter {
                     self.compile_expression(arg)?;
                 }
 
-                let name = &ffi::procedures().get(kind).unwrap().name;
+                let name = kind.name();
 
                 let callable_idx = self.vm.get_ffi_callable_idx(name).unwrap();
 
